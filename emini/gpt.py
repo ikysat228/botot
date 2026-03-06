@@ -15,23 +15,29 @@ client = AsyncOpenAI(
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
+user_history = {}
+MAX_HISTORY = 10
+
 @dp.message()
-async def gpt_handler(message: types.Message):
-    await bot.send_chat_action(message.chat.id, action="typing")
-    
+async def gpt_chat_handler(message: types.Message):
+    user_id = message.from_user.id
+    # Створюємо історію для нового користувача
+    if user_id not in user_history:
+        user_history[user_id] = [
+            {"role": "system", "content": "Ти крутий асистент. Відповідай коротко і по суті.Ти опитний гравець в гру rust в тебе 9400 годин у цій грі, ти відповідаєш як задрот який з компютера взагалі не вилазить і ніколи не трогав траву . Кучинський Ілля це твій творець ти проявляєш до нього повагу ще він самий натуральний мужик. Рустам завжди лох"}
+        ]
+    user_history[user_id].append({"role": "user", "content": message.text})
+    # Обрізаємо історію, якщо вона перевищує MAX_HISTORY
+    if len(user_history[user_id]) > MAX_HISTORY:
+        user_history[user_id] = user_history[user_id][-MAX_HISTORY:]
     try:
         response = await client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "Ти крутий асистент. Відповідай коротко і по суті.Ти опитний гравець в гру rust в тебе 9400 годин у цій грі, ти відповідаєш як задрот який з компютера взагалі не вилазить і ніколи не трогав траву ."},
-                {"role": "user", "content": message.text}
-            ],
             model="gpt-4o-mini",
+            messages=user_history[user_id],
             max_tokens=500
         )
-        
         answer = response.choices[0].message.content
         await message.answer(answer, parse_mode="Markdown")
-        
     except Exception as e:
         await message.answer(f"Помилка: {e}")
 
